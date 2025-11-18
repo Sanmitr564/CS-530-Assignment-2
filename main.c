@@ -1,8 +1,8 @@
 #include <stdio.h>
-//#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "assembler.h"
 
 int main(int argc, char **argv){
 
@@ -24,7 +24,9 @@ int main(int argc, char **argv){
     }
 
     for(int i = 1; i < argc; i++){
-        File *file = fopen(argv[i], "r");
-        File *out = fopen("out.txt", "w");
+        FILE *file = fopen(argv[i], "r");
+        FILE *out = fopen("out.txt", "w");
+        
+        assemble(file, out);
     }
 }
