@@ -76,3 +76,12 @@ Instruction* findInstruction(char *mnemonic){
     }
     return NULL;
 }
+
+Directive* findDirective(char *mnemonic){
+    for(int i = 0; i < NUM_DIRECTIVES; i++){
+        if(strcmp(mnemonic, directives->mnemonic) == 0){
+            return &directives[i];
+        }
+    }
+    return NULL;
+}
