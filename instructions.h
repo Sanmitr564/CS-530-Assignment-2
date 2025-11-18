@@ -1,4 +1,5 @@
-#define MNEMONIC_MAX_LEN 6
+#define MNEMONIC_MAX_LEN    6
+#define NUM_INSTRUCTIONS    59
 
 // Bitmaps for format flags
 #define FMT1 0b1000
@@ -10,9 +11,9 @@ typedef struct{
     char mnemonic[MNEMONIC_MAX_LEN + 1];
     unsigned int formats;   //0b[1][2][3][4] T/F flag for formats
     unsigned int opcode;    //opcode in hex
-}Operand;
+}Instruction;
 
-Operand operands[] = {
+Instruction instructions[] = {
     {"ADD",     FMT3 | FMT4,    0x18},
     {"ADDF",    FMT3 | FMT4,    0x58},
     {"ADDR",    FMT2,           0x90},
@@ -73,3 +74,5 @@ Operand operands[] = {
     {"TIXR",    FMT2,           0xB8},
     {"WD",      FMT3 | FMT4,    0xDC}
 };
+
+Instruction findInstruction(char *mnemonic);
