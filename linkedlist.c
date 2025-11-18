@@ -3,17 +3,22 @@
 
 #include "linkedlist.h"
 
-Node newNode(void* data){
+Node *newNode(void* data){
     Node* node = (Node*)malloc(sizeof(Node));
+
+    if (node == NULL) {
+        printf("Could not allocate memory for node.\n");
+        exit(9);
+    }
 
     node->data = data;
     node->nextNode = NULL;
     return node;
 }
 
-Node createAndAppendNode(List *list, void* data){
+Node *createAndAppendNode(List *list, void* data){
     Node* node = newNode(data);
-    addnode(list, node);
+    addNode(list, node);
     return node;
 }
 
