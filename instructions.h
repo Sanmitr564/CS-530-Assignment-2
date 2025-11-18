@@ -8,31 +8,18 @@
 #define FMT3 0b0010
 #define FMT4 0b0001
 
-//Instruction type definition
-struct Instruction_Struct{
+//Opcode type definition
+struct Opcode_Struct{
     char mnemonic[MNEMONIC_MAX_LEN + 1];
     unsigned int formats;   //0b[1][2][3][4] T/F flag for formats
     unsigned int opcode;    //opcode in hex
 };
 
-//Assembler Directive ("Directive") type definition
-struct Directive_Struct{
-    char mnemonic[MNEMONIC_MAX_LEN + 1];
-};
+typedef struct Opcode_Struct Opcode;
 
-typedef struct Instruction_Struct Instruction;
-typedef struct Directive_Struct Directive;
-
-//Assembler Instruction list
+//Assembler Opcode list
 #pragma once
-extern const Instruction instructions[];
+extern const Opcode opcodes[];
 
-//Assembler Directive list:
-#pragma once
-extern const Directive directives[];
-
-
-//Search methods (recognizes instruction/directive input)
-Instruction *findInstruction(char *mnemonic);
-
-Directive *findDirective(char *mnemonic);
+//Search methods (recognizes opcode/directive input)
+Opcode *findOpcode(char *mnemonic);

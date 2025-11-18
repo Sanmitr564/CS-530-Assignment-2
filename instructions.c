@@ -6,8 +6,8 @@
 #include "instructions.h"
 #endif
 
-//Instruction list and their opcodes:
-const Instruction instructions[] = {
+//Opcode list:
+const Opcode opcodes[] = {
     {"ADD",     FMT3 | FMT4,    0x18},
     {"ADDF",    FMT3 | FMT4,    0x58},
     {"ADDR",    FMT2,           0x90},
@@ -66,39 +66,27 @@ const Instruction instructions[] = {
     {"TIO",     FMT1,           0xF8},
     {"TIX",     FMT3 | FMT4,    0x2C},
     {"TIXR",    FMT2,           0xB8},
-    {"WD",      FMT3 | FMT4,    0xDC}
+    {"WD",      FMT3 | FMT4,    0xDC},
+    {"START",   0,              0},
+    {"END",     0,              0},
+    {"RESB",    0,              0},
+    {"RESW",    0,              0},
+    {"BYTE",    0,              0},
+    {"WORD",    0,              0},
+    {"BASE",    0,              0},
+    {"NOBASE",  0,              0},
+    {"*",       0,              0},
+    {"LTORG",   0,              0},
+    {"USE",     0,              0},
+    {"CSECT",   0,              0},
+    {"EXTDEF",  0,              0},
+    {"EXTREF",  0,              0}
 };
 
-const Directive directives[] = {
-    {"START" },
-    {"END"   },
-    {"RESB"  },
-    {"RESW"  },
-    {"BYTE"  },
-    {"WORD"  },
-    {"BASE"  },
-    {"NOBASE"},
-    {"*"     },
-    {"LTORG" },
-    {"USE"   },
-    {"CSECT" },
-    {"EXTDEF"},
-    {"EXTREF"},
-};
-
-Instruction* findInstruction(char *mnemonic){
-    for(int i = 0; i < NUM_INSTRUCTIONS; i++){
-        if(strcmp(mnemonic, instructions[i].mnemonic) == 0) {
-            return &instructions[i];
-        }
-    }
-    return NULL;
-}
-
-Directive* findDirective(char *mnemonic){
-    for(int i = 0; i < NUM_DIRECTIVES; i++){
-        if(strcmp(mnemonic, directives[i].mnemonic) == 0) {
-            return &directives[i];
+Opcode* findOpcode(char *mnemonic){
+    for(int i = 0; i < NUM_INSTRUCTIONS + NUM_DIRECTIVES; i++){
+        if(strcmp(mnemonic, opcodes[i].mnemonic) == 0) {
+            return &opcodes[i];
         }
     }
     return NULL;

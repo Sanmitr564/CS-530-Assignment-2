@@ -45,12 +45,13 @@ void assemble(FILE *input, FILE *output){
 
         parse(dirtyLine, lineNum, intermediateRep);
 
+
     }
 }
 
 void parse(char *line, int lineNum, IntermediateRep *intermediateRep){
     if(line[0] == '.'){
-        intermediateRep->comment = strdup(line);//TODO: fix
+        intermediateRep->comment = strdup(line);
         return;
     }
 
@@ -71,8 +72,6 @@ void parse(char *line, int lineNum, IntermediateRep *intermediateRep){
     getLabel(line, lineNum, intermediateRep);
     getOpcode(line, lineNum, intermediateRep);
     getOperand(line, lineNum, intermediateRep);
-
-
 }
 
 char* strip(char *str){
@@ -131,20 +130,24 @@ void getOpcode(char *line, int lineNum, IntermediateRep *intermediateRep){
 
     if(opCode[0] == '+'){
         intermediateRep->format = 4;
-        intermediateRep->instruction = findInstruction(strippedOpCode + 1);
+        intermediateRep->opcode = findOpcode(strippedOpCode + 1);
     }else{
         intermediateRep->format = -1;
-        intermediateRep->instruction = findInstruction(strippedOpCode);
+        intermediateRep->opcode = findOpcode(strippedOpCode);
     }
 
-    if(intermediateRep->instruction == NULL){
+    if(intermediateRep->opcode == NULL){
         printf("Could not find opcode %s. Terminating.\n", strippedOpCode);
         exit(6);
     }
 
+    if (intermediateRep->opcode->formats == 0) {
+        return;
+    }
+
     if(intermediateRep->format == 4){
-        if (!(intermediateRep->instruction->formats & FMT4)) {
-            printf("%s does not support format 4 instruction. Terminating.\n", strippedOpCode);
+        if (!(intermediateRep->opcode->formats & FMT4)) {
+            printf("%s does not support format 4 opcode. Terminating.\n", strippedOpCode);
             exit(7);
         }
         return;
@@ -152,7 +155,7 @@ void getOpcode(char *line, int lineNum, IntermediateRep *intermediateRep){
 
     
 
-    switch(intermediateRep->instruction->formats & (FMT1 | FMT2 | FMT3)){
+    switch(intermediateRep->opcode->formats & (FMT1 | FMT2 | FMT3)){
         case FMT1:
             intermediateRep->format = 1;
             break;

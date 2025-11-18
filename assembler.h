@@ -16,7 +16,7 @@
 typedef struct{
     unsigned int address;
     char label[LABEL_MAX_LEN + 1];
-    Instruction *instruction;
+    Opcode *opcode;
     int format;
     char operand[OPERAND_COL_LEN + 1];
     char *comment;
