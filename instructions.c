@@ -6,6 +6,7 @@
 #include "instructions.h"
 #endif
 
+//Instruction list and their opcodes:
 const Instruction instructions[] = {
     {"ADD",     FMT3 | FMT4,    0x18},
     {"ADDF",    FMT3 | FMT4,    0x58},
@@ -68,6 +69,23 @@ const Instruction instructions[] = {
     {"WD",      FMT3 | FMT4,    0xDC}
 };
 
+const Directive directives[] = {
+    {"START" },
+    {"END"   },
+    {"RESB"  },
+    {"RESW"  },
+    {"BYTE"  },
+    {"WORD"  },
+    {"BASE"  },
+    {"NOBASE"},
+    {"*"     },
+    {"LTORG" },
+    {"USE"   },
+    {"CSECT" },
+    {"EXTDEF"},
+    {"EXTREF"},
+};
+
 Instruction* findInstruction(char *mnemonic){
     for(int i = 0; i < NUM_INSTRUCTIONS; i++){
         if(strcmp(mnemonic, instructions[i].mnemonic) == 0) {
@@ -79,7 +97,7 @@ Instruction* findInstruction(char *mnemonic){
 
 Directive* findDirective(char *mnemonic){
     for(int i = 0; i < NUM_DIRECTIVES; i++){
-        if(strcmp(mnemonic, directives->mnemonic) == 0){
+        if(strcmp(mnemonic, directives[i].mnemonic) == 0) {
             return &directives[i];
         }
     }
