@@ -24,9 +24,6 @@
 #include "instructions.h"
 #endif
 
-// ----------------------
-// Pass 1 helper utilities
-// ----------------------
 
 static int isDirective(const Opcode *op) {
     return op != NULL && op->formats == 0;
@@ -34,8 +31,8 @@ static int isDirective(const Opcode *op) {
 
 static unsigned int parseIntAuto(const char *text) {
     if (text == NULL) return 0;
-    // Allow 0xHEX or decimal; also plain HEX if prefixed with 0x by user
-    // strtoul with base 0 auto-detects 0x/0 prefix
+    //allow 0xHEX or decimal. plain HEX if prefixed with 0x 
+    //strtoul with base 0 detects 0x/0 prefix
     return (unsigned int)strtoul(text, NULL, 0);
 }
 
@@ -46,18 +43,18 @@ static int isHexDigit(char c) {
 }
 
 // operand for BYTE or literal body without '='
-// C'..' => length = number of chars
-// X'..' => length = hexDigits/2 (hex digit count must be even)
+// C'..' so: length = number of chars
+// X'..' so: length = hexDigits/2. should be even
 static int byteLikeLength(const char *operand) {
     if (operand == NULL || operand[0] == '\0') return 0;
 
-    // Expect form C'..' or X'..'
+    //expect it to be: C'..' or X'..'
     if ((operand[0] != 'C' && operand[0] != 'X') || operand[1] != '\'') {
         return 0;
     }
 
     char type = operand[0];
-    const char *content = operand + 2; // skip prefix and opening quote
+    const char *content = operand + 2; //skip prefix and opening '
     const char *end = strrchr(content, '\'');
     if (end == NULL) return 0;
 
@@ -69,7 +66,7 @@ static int byteLikeLength(const char *operand) {
     }
 
     // type == 'X'
-    // Validate all hex digits and even count
+    //check all hex digits and even count
     for (int i = 0; i < len; i++) {
         if (!isHexDigit(content[i])) return 0;
     }
@@ -77,7 +74,7 @@ static int byteLikeLength(const char *operand) {
     return len / 2;
 }
 
-// Literal key is the full literal text, e.g., "=C'EOF'"
+//literal key is the full literal text, like: "=C'EOF'"
 static LitTabEntry *findLiteral(List *list, const char *literalKey) {
     if (list == NULL || list->head == NULL || literalKey == NULL) return NULL;
     Node *cur = list->head->nextNode;
@@ -104,7 +101,7 @@ static SymtabEntry *findSymbol(List *list, const char *label) {
     return NULL;
 }
 
-// Global storage for pass 1 results (kept in-memory for pass 2)
+//global storage for pass 1 results. In memory for pass 2
 static List intermediateList;
 static List symtabList;
 static List littabList;
@@ -119,7 +116,7 @@ void assemble(FILE *input, FILE *output){
     unsigned int startAddress = 0;
     unsigned int programLength = 0;
 
-    // Initialize lists with dummy heads so addNode works
+    //initialize lists with heads so addNode works
     intermediateList.head = intermediateList.tail = newNode(NULL);
     symtabList.head = symtabList.tail = newNode(NULL);
     littabList.head = littabList.tail = newNode(NULL);
@@ -189,6 +186,7 @@ void assemble(FILE *input, FILE *output){
 
         int locctrIncrement = 0; //amount to add to LOCCTR
 
+        //classify mnemonic and set how far to increment LOCCTR
         if (isDirective(intermediateRep->opcode)) {
             if (strcmp(mnemonic, "BYTE") == 0) {
                 locctrIncrement = byteLikeLength(intermediateRep->operand);
@@ -201,7 +199,7 @@ void assemble(FILE *input, FILE *output){
             } else if (strcmp(mnemonic, "BASE") == 0 || strcmp(mnemonic, "NOBASE") == 0) {
                 locctrIncrement = 0; // pass 1 bookkeeping only
             } else if (strcmp(mnemonic, "*") == 0) {
-                // Explicit literal placement: operand must be a literal we've seen or new one
+                //operand must be a literal we have seen or new one
                 const char *litKey = intermediateRep->operand;
                 if (litKey == NULL || litKey[0] != '=') {
                     printf("Invalid literal placement on line %d. Terminating.\n", lineNum);
@@ -226,10 +224,10 @@ void assemble(FILE *input, FILE *output){
                     locctrIncrement = 0; // already placed
                 }
             } else if (strcmp(mnemonic, "END") == 0) {
-                // Append END record, then flush any remaining literals
+                //Append END record
                 createAndAppendNode(&intermediateList, intermediateRep);
 
-                // Place all unassigned literals at current LOCCTR
+                //place all unassigned literals at current LOCCTR
                 Node *cur = littabList.head->nextNode;
                 while (cur != NULL) {
                     LitTabEntry *lit = (LitTabEntry*)cur->data;
@@ -241,13 +239,14 @@ void assemble(FILE *input, FILE *output){
                 }
 
                 programLength = locctr - startAddress;
-                // End pass 1
+                //end pass 1
+
                 break;
             } else {
-                locctrIncrement = 0; // Other recognized directives have no effect on LOCCTR in our pass 1
+                locctrIncrement = 0; //other recognized directives have no effect on LOCCTR in our pass 1
             }
         } else {
-            // Instruction size is determined by the parsed format (1..4)
+            //instruction size is determined by the parsed format 
             locctrIncrement = intermediateRep->format;
         }
 
