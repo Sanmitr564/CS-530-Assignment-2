@@ -23,6 +23,11 @@ Node *createAndAppendNode(List *list, void* data){
 }
 
 void addNode(List *list, Node* node){
+    if (list->head == NULL) {
+        list->head = node;
+        list->tail = node;
+        return;
+    }
     list->tail->nextNode = node;
     list->tail = node;
 }
