@@ -77,7 +77,7 @@ static int byteLikeLength(const char *operand) {
 //literal key is the full literal text, like: "=C'EOF'"
 static LitTabEntry *findLiteral(List *list, const char *literalKey) {
     if (list == NULL || list->head == NULL || literalKey == NULL) return NULL;
-    Node *cur = list->head->nextNode;
+    Node *cur = list->head;
     while (cur != NULL) {
         LitTabEntry *entry = (LitTabEntry*)cur->data;
         if (entry != NULL && entry->name != NULL && strcmp(entry->name, literalKey) == 0) {
@@ -90,7 +90,7 @@ static LitTabEntry *findLiteral(List *list, const char *literalKey) {
 
 static SymtabEntry *findSymbol(List *list, const char *label) {
     if (list == NULL || list->head == NULL || label == NULL || label[0] == '\0') return NULL;
-    Node *cur = list->head->nextNode;
+    Node *cur = list->head;
     while (cur != NULL) {
         SymtabEntry *entry = (SymtabEntry*)cur->data;
         if (entry != NULL && entry->symbol != NULL && strcmp(entry->symbol, label) == 0) {
@@ -150,7 +150,7 @@ void assemble(FILE *input, FILE *output){
             intermediateRep->address = locctr;
             createAndAppendNode(&intermediateList, intermediateRep);
 
-            SymtabEntry* symtabEntry = (SymtabEntry*)malloc(sizeof(SymtabEntry));
+            SymtabEntry* symtabEntry = (SymtabEntry*)calloc(1, sizeof(SymtabEntry));
             strcpy(symtabEntry->csect, intermediateRep->label);
             symtabEntry->symbol[0] = '\0';
             symtabEntry->value = startAddress;
@@ -234,7 +234,7 @@ void assemble(FILE *input, FILE *output){
                 createAndAppendNode(&intermediateList, intermediateRep);
 
                 //place all unassigned literals at current LOCCTR
-                Node *cur = littabList.head->nextNode;
+                Node *cur = littabList.head;
                 while (cur != NULL) {
                     LitTabEntry *lit = (LitTabEntry*)cur->data;
                     if (lit != NULL && lit->address == -1 && lit->length > 0) {
@@ -269,14 +269,59 @@ void assemble(FILE *input, FILE *output){
     while (debugNode != NULL) {
         debugNode = debugNode->nextNode;
     }
+
+    pass2();
 }
 
 void pass2() {
     Node* intermediateRepNode = intermediateList.head;
+    bool canBase = false;
+    char* baseLabel = NULL;
 
+    //TODO: Replace print with print to file
     while (intermediateRepNode != NULL) {
+        IntermediateRep* intermediateRep = (IntermediateRep*)intermediateRepNode->data;
 
+        if (intermediateRep->comment != NULL && strlen(intermediateRep->comment) != 0) {
+            printf("%s", intermediateRep->comment);
+            intermediateRepNode = intermediateRepNode->nextNode;
+            continue;
+        }
 
+        printf("%04X    ", intermediateRep->address);
+        printf("%-8s", intermediateRep->label);
+        if (intermediateRep->format == 4) {
+            printf("+");
+        }
+        else {
+            printf(" ");
+        }
+        printf("%-8s", intermediateRep->opcode->mnemonic);
+        if (
+            intermediateRep->operand[0] == '#' ||
+            intermediateRep->operand[0] == '@' ||
+            intermediateRep->operand[0] == '='
+            ) {
+            printf("%-26s", intermediateRep->operand);
+        }
+        else {
+            printf(" %-25s", intermediateRep->operand);
+        }
+
+        if (intermediateRep->format != -1) {
+            int instruction = intermediateRep->opcode->opcode;
+            int ni = 0b11;
+            if (intermediateRep->operand[0] == '#') {
+                ni = 0b01;
+            }
+            else if (intermediateRep->operand[0] == '@') {
+                ni = 0b10;
+            }
+            instruction += ni;
+
+            printf("%02X", instruction);   
+        }
+        printf("\n");
         intermediateRepNode = intermediateRepNode->nextNode;
     }
 }

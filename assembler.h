@@ -42,6 +42,7 @@ typedef struct {
 
 
 void assemble(FILE *input, FILE *output);
+void pass2();
 
 void parse(char *line, int lineNum, IntermediateRep *intermediateRep);
 
