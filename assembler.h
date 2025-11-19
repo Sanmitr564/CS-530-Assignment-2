@@ -13,6 +13,7 @@
 #define OPERAND_COL_LEN     18
 #define LINE_MAX_LEN        66
 
+//Representation of the intermediate file between pass 1 and 2
 typedef struct{
     unsigned int address;
     char label[LABEL_MAX_LEN + 1];
@@ -22,6 +23,7 @@ typedef struct{
     char *comment;
 }IntermediateRep;
 
+//Representation of a symtable entry
 typedef struct {
     char *csect;
     char *symbol;
@@ -30,6 +32,7 @@ typedef struct {
     char *flags;
 }SymtabEntry;
 
+//Representation of a Littable entry
 typedef struct {
     char *name;
     int operand;

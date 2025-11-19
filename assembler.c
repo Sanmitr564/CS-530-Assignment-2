@@ -27,12 +27,14 @@
 void assemble(FILE *input, FILE *output){
     int lineNum = 0;
     char buffer[LINE_MAX_LEN + 1];
-    char* dirtyLine;
+    char* dirtyLine;                    //Prevents editing buffer (probably not necessary? its here just in case)
     int len = 0;
     int size = 0;
     int locctr = 0;
 
+    //Go through each line
     while(fgets(buffer, LINE_MAX_LEN + 1, input) != NULL){
+        //if line is empty get next line
         if(strlen(buffer) == 0){
             continue;
         }
@@ -49,17 +51,21 @@ void assemble(FILE *input, FILE *output){
     }
 }
 
+//Parses each line and puts the parts into intermediateRep
 void parse(char *line, int lineNum, IntermediateRep *intermediateRep){
+    //if line starts with '.' it is a comment
     if(line[0] == '.'){
         intermediateRep->comment = strdup(line);
         return;
     }
 
+    //if line is not long enough to have all required parts, end
     if(strlen(line) < OPCODE_COL_LEN + 1 + LABEL_COL_LEN + 2){
         printf("Incorrect formatting on line %d. Terminating.\n", lineNum);
         exit(4);
     }
 
+    //check for required whitespace
     if(
         line[8] != ' ' ||
         line[15] != ' ' ||
@@ -69,11 +75,13 @@ void parse(char *line, int lineNum, IntermediateRep *intermediateRep){
         exit(3);
     }
 
+    //put label, opcode, operand into intermediateRep
     getLabel(line, lineNum, intermediateRep);
     getOpcode(line, lineNum, intermediateRep);
     getOperand(line, lineNum, intermediateRep);
 }
 
+//Strips leading and trailing whitespace from string
 char* strip(char *str){
     int i = 0;
     int j = 0;
@@ -93,6 +101,7 @@ char* strip(char *str){
     return strippedStr;
 }
 
+//Makes sure label has correct format
 bool labelValidate(char* label){
     bool valid = true;
     if(!isalpha(label[0])){
@@ -104,6 +113,7 @@ bool labelValidate(char* label){
     return valid;
 }
 
+//Gets the label from the line
 void getLabel(char *line, int lineNum, IntermediateRep *intermediateRep){
     char label[LABEL_COL_LEN + 1];
     strncpy(label, line, LABEL_COL_LEN);
@@ -122,6 +132,7 @@ void getLabel(char *line, int lineNum, IntermediateRep *intermediateRep){
     }
 }
 
+//Gets opcode from a line
 void getOpcode(char *line, int lineNum, IntermediateRep *intermediateRep){
     char opCode[OPCODE_COL_LEN + 1];
     strncpy(opCode, line + 9, OPCODE_COL_LEN);
@@ -174,6 +185,7 @@ void getOpcode(char *line, int lineNum, IntermediateRep *intermediateRep){
     }
 }
 
+//Gets operand from a line
 void getOperand(char *line, int lineNum, IntermediateRep *intermediateRep){
     char operand[OPERAND_COL_LEN + 1];
     strncpy(operand, &line[17], OPERAND_COL_LEN);
