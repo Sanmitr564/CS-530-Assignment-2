@@ -25,8 +25,8 @@ typedef struct{
 
 //Representation of a symtable entry
 typedef struct {
-    char *csect;
-    char *symbol;
+    char csect[LABEL_MAX_LEN + 1];
+    char symbol[LABEL_MAX_LEN + 1];
     unsigned int value;
     unsigned int length;
     char *flags;
@@ -52,3 +52,4 @@ bool labelValidate(char* label);
 void getLabel(char *line, int lineNum, IntermediateRep *intermediateRep);
 void getOpcode(char *line, int lineNum, IntermediateRep *intermediateRep);
 void getOperand(char *line, int lineNum, IntermediateRep *intermediateRep);
+void getOperandSpecial(char* line, int lineNum, IntermediateRep* intermediateRep, int startIndex);

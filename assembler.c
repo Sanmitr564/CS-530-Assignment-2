@@ -106,6 +106,7 @@ static List intermediateList;
 static List symtabList;
 static List littabList;
 
+//Performs pass 1
 void assemble(FILE *input, FILE *output){
     int lineNum = 0;
     char buffer[LINE_MAX_LEN + 1];
@@ -117,9 +118,9 @@ void assemble(FILE *input, FILE *output){
     unsigned int programLength = 0;
 
     //initialize lists with heads so addNode works
-    intermediateList.head = intermediateList.tail = newNode(NULL);
-    symtabList.head = symtabList.tail = newNode(NULL);
-    littabList.head = littabList.tail = newNode(NULL);
+    intermediateList.head = intermediateList.tail = NULL;
+    symtabList.head = symtabList.tail = NULL;
+    littabList.head = littabList.tail = NULL;
 
     //Go through each line
     while(fgets(buffer, LINE_MAX_LEN + 1, input) != NULL){
@@ -148,6 +149,11 @@ void assemble(FILE *input, FILE *output){
             locctr = startAddress;
             intermediateRep->address = locctr;
             createAndAppendNode(&intermediateList, intermediateRep);
+
+            SymtabEntry* symtabEntry = (SymtabEntry*)malloc(sizeof(SymtabEntry));
+            strcpy(symtabEntry->csect, intermediateRep->label);
+            symtabEntry->symbol[0] = '\0';
+            symtabEntry->value = startAddress;
             continue;
         }
 
@@ -158,11 +164,11 @@ void assemble(FILE *input, FILE *output){
                 exit(11);
             }
             SymtabEntry *symtabEntry = (SymtabEntry*)calloc(1, sizeof(SymtabEntry));
-            symtabEntry->symbol = strdup(intermediateRep->label);
+            strcpy(symtabEntry->symbol, intermediateRep->label);
             symtabEntry->value = (unsigned int)locctr;
             symtabEntry->flags = strdup("R");
             symtabEntry->length = 0;
-            symtabEntry->csect = NULL;
+            symtabEntry->csect[0] = '\0';
             createAndAppendNode(&symtabList, symtabEntry);
         }
 
@@ -252,8 +258,26 @@ void assemble(FILE *input, FILE *output){
 
         createAndAppendNode(&intermediateList, intermediateRep);
         locctr += locctrIncrement;
+    }
+
+    if (strcmp(((IntermediateRep*)intermediateList.tail->data)->opcode->mnemonic, "END") != 0) {
+        printf("Program ended without END directive. Terminating.\n");
+        exit(16);
+    }
+
+    Node* debugNode = littabList.head;
+    while (debugNode != NULL) {
+        debugNode = debugNode->nextNode;
+    }
+}
+
+void pass2() {
+    Node* intermediateRepNode = intermediateList.head;
+
+    while (intermediateRepNode != NULL) {
 
 
+        intermediateRepNode = intermediateRepNode->nextNode;
     }
 }
 
@@ -265,6 +289,23 @@ void parse(char *line, int lineNum, IntermediateRep *intermediateRep){
         return;
     }
 
+    //special case for '*'
+    if (line[0] == '*') {
+        char whitespaceCheck[LABEL_COL_LEN + 1];
+        strncpy(whitespaceCheck, &line[1], LABEL_COL_LEN);
+        whitespaceCheck[LABEL_COL_LEN] = '\0';
+
+        if (strlen(strip(whitespaceCheck)) != 0) {
+            printf("Incorrect formatting on line %d. Terminating.\n", lineNum);
+            exit(15);
+        }
+
+        intermediateRep->opcode = findOpcode("*");
+        intermediateRep->format = -1;
+        getOperandSpecial(line, lineNum, intermediateRep, 9);
+        return;
+    }
+
     //if line is not long enough to have all required parts, end
     if(strlen(line) < OPCODE_COL_LEN + 1 + LABEL_COL_LEN + 2){
         printf("Incorrect formatting on line %d. Terminating.\n", lineNum);
@@ -273,9 +314,7 @@ void parse(char *line, int lineNum, IntermediateRep *intermediateRep){
 
     //check for required whitespace
     if(
-        line[8] != ' ' ||
-        line[15] != ' ' ||
-        line[16] != ' '
+        line[8] != ' '
     ){
         printf("Incorrect formatting on line %d. Terminating.\n", lineNum);
         exit(3);
@@ -284,6 +323,16 @@ void parse(char *line, int lineNum, IntermediateRep *intermediateRep){
     //put label, opcode, operand into intermediateRep
     getLabel(line, lineNum, intermediateRep);
     getOpcode(line, lineNum, intermediateRep);
+    if (intermediateRep->format == 1 || strcmp(intermediateRep->opcode->mnemonic, "RSUB") == 0) {
+        return;
+    }
+    if (
+        line[15] != ' ' ||
+        line[16] != ' '
+        ) {
+        printf("Incorrect formatting on line %d. Terminating.\n", lineNum);
+        exit(16);
+    }
     getOperand(line, lineNum, intermediateRep);
 }
 
@@ -370,8 +419,6 @@ void getOpcode(char *line, int lineNum, IntermediateRep *intermediateRep){
         return;
     }
 
-    
-
     switch(intermediateRep->opcode->formats & (FMT1 | FMT2 | FMT3)){
         case FMT1:
             intermediateRep->format = 1;
@@ -391,11 +438,16 @@ void getOpcode(char *line, int lineNum, IntermediateRep *intermediateRep){
     }
 }
 
-//Gets operand from a line
+//Gets operand from a line in most cases
 void getOperand(char *line, int lineNum, IntermediateRep *intermediateRep){
+    getOperandSpecial(line, lineNum, intermediateRep, 17);
+}
+
+//added specifically for '*' directive
+void getOperandSpecial(char* line, int lineNum, IntermediateRep* intermediateRep, int startIndex) {
     char operand[OPERAND_COL_LEN + 1];
-    strncpy(operand, &line[17], OPERAND_COL_LEN);
+    strncpy(operand, &line[startIndex], OPERAND_COL_LEN);
     operand[OPERAND_COL_LEN] = '\0';
-    char *strippedOperand = strip(operand);
+    char* strippedOperand = strip(operand);
     strcpy(intermediateRep->operand, strippedOperand);
 }
