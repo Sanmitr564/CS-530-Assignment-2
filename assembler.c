@@ -154,6 +154,7 @@ void assemble(FILE *input, FILE *output){
             strcpy(symtabEntry->csect, intermediateRep->label);
             symtabEntry->symbol[0] = '\0';
             symtabEntry->value = startAddress;
+            createAndAppendNode(&symtabList, symtabEntry);
             continue;
         }
 
@@ -245,6 +246,9 @@ void assemble(FILE *input, FILE *output){
                 }
 
                 programLength = locctr - startAddress;
+                if (((SymtabEntry*)symtabList.head->data)->csect[0] != '\0') {
+                    ((SymtabEntry*)symtabList.head->data)->length = programLength;
+                }
                 //end pass 1
 
                 break;
@@ -265,7 +269,7 @@ void assemble(FILE *input, FILE *output){
         exit(16);
     }
 
-    Node* debugNode = littabList.head;
+    Node* debugNode = symtabList.head;
     while (debugNode != NULL) {
         debugNode = debugNode->nextNode;
     }
