@@ -12,12 +12,12 @@ int main(int argc, char **argv){
         exit(1);
     }
     
-    //Make sure all input are .sic files
+    //Make sure all input are valid .sic files
     for(int i = 1; i < argc; i++){
         int len = strlen(argv[i]);
 
         if(
-            len < 4 ||
+            len < 5 ||
             strcmp(argv[i] + len - 4, ".sic") != 0
         ){
             printf("Unexpected argument \"%s\" found. Terminating program.\n", argv[i]);
