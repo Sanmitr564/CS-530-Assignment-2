@@ -28,8 +28,7 @@ int main(int argc, char **argv){
     //assemble all files
     for(int i = 1; i < argc; i++){
         FILE *file = fopen(argv[i], "r");
-        FILE *out = fopen("out.txt", "w");
         
-        assemble(file, out);
+        assemble(file, argv[i]);
     }
 }

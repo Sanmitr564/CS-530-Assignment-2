@@ -1,7 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef LINKEDLIST
+#define LINKEDLIST
 #include "linkedlist.h"
+#endif
 
 Node *newNode(void* data){
     Node* node = (Node*)malloc(sizeof(Node));

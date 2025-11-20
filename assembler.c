@@ -16,7 +16,11 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+#ifndef LINKEDLIST
+#define LINKEDLIST
 #include "linkedlist.h"
+#endif
+
 #include "assembler.h"
 
 #ifndef OPCODES
@@ -50,7 +54,8 @@ static int byteLikeLength(const char *operand) {
 
     //expect it to be: C'..' or X'..'
     if ((operand[0] != 'C' && operand[0] != 'X') || operand[1] != '\'') {
-        return 0;
+        printf("Improper constant %s. Terminating.\n", operand);
+        exit(39);
     }
 
     char type = operand[0];
@@ -136,13 +141,24 @@ static SymtabEntry *findSymbol(List *list, const char *label) {
     return NULL;
 }
 
-//global storage for pass 1 results. In memory for pass 2
-static List intermediateList;
-static List symtabList;
-static List littabList;
-
 //Performs pass 1
-void assemble(FILE *input, FILE *output){
+void assemble(FILE *input, char* fileName){
+    List intermediateList;
+    List symtabList;
+    List littabList;
+
+    //initialize lists with heads so addNode works
+    intermediateList.head = intermediateList.tail = NULL;
+    symtabList.head = symtabList.tail = NULL;
+    littabList.head = littabList.tail = NULL;
+
+    pass1(input, &intermediateList, &symtabList, &littabList);
+    pass2(&intermediateList, &symtabList, &littabList);
+
+    freeLists(&intermediateList, &symtabList, &littabList);
+}
+
+void pass1(FILE* input, List* intermediateList, List* symtabList, List* littabList) {
     int lineNum = 0;
     char buffer[LINE_MAX_LEN + 1];
     char* dirtyLine;                    //Prevents editing buffer (probably not necessary? its here just in case)
@@ -152,60 +168,55 @@ void assemble(FILE *input, FILE *output){
     unsigned int startAddress = 0;
     unsigned int programLength = 0;
 
-    //initialize lists with heads so addNode works
-    intermediateList.head = intermediateList.tail = NULL;
-    symtabList.head = symtabList.tail = NULL;
-    littabList.head = littabList.tail = NULL;
-
     //Go through each line
-    while(fgets(buffer, LINE_MAX_LEN + 1, input) != NULL){
+    while (fgets(buffer, LINE_MAX_LEN + 1, input) != NULL) {
         //if line is empty get next line
-        if(strlen(buffer) == 0){
+        if (strlen(buffer) == 0) {
             continue;
         }
 
         dirtyLine = buffer;
         lineNum++;
-        IntermediateRep *intermediateRep = (IntermediateRep*)calloc(1, sizeof(IntermediateRep));
+        IntermediateRep* intermediateRep = (IntermediateRep*)calloc(1, sizeof(IntermediateRep));
 
         parse(dirtyLine, lineNum, intermediateRep);
-        
+
         // store and continue no change to LOCCTR 
         if (intermediateRep->comment != NULL) {
-            createAndAppendNode(&intermediateList, intermediateRep);
+            createAndAppendNode(intermediateList, intermediateRep);
             continue;
         }
 
-        const char *mnemonic = intermediateRep->opcode->mnemonic;
+        const char* mnemonic = intermediateRep->opcode->mnemonic;
 
         //handles START
         if (strcmp(mnemonic, "START") == 0) {
             startAddress = parseIntAuto(intermediateRep->operand);
             locctr = startAddress;
             intermediateRep->address = locctr;
-            createAndAppendNode(&intermediateList, intermediateRep);
+            createAndAppendNode(intermediateList, intermediateRep);
 
             SymtabEntry* symtabEntry = (SymtabEntry*)calloc(1, sizeof(SymtabEntry));
             strcpy(symtabEntry->csect, intermediateRep->label);
             symtabEntry->symbol[0] = '\0';
             symtabEntry->value = startAddress;
-            createAndAppendNode(&symtabList, symtabEntry);
+            createAndAppendNode(symtabList, symtabEntry);
             continue;
         }
 
         //inserts label into SYMTAB if present
         if (strlen(intermediateRep->label) > 0) {
-            if (findSymbol(&symtabList, intermediateRep->label) != NULL) {
+            if (findSymbol(symtabList, intermediateRep->label) != NULL) {
                 printf("Duplicate label %s on line %d. Terminating.\n", intermediateRep->label, lineNum);
                 exit(11);
             }
-            SymtabEntry *symtabEntry = (SymtabEntry*)calloc(1, sizeof(SymtabEntry));
+            SymtabEntry* symtabEntry = (SymtabEntry*)calloc(1, sizeof(SymtabEntry));
             strcpy(symtabEntry->symbol, intermediateRep->label);
             symtabEntry->value = (unsigned int)locctr;
             symtabEntry->flags = strdup("R");
             symtabEntry->length = 0;
             symtabEntry->csect[0] = '\0';
-            createAndAppendNode(&symtabList, symtabEntry);
+            createAndAppendNode(symtabList, symtabEntry);
         }
 
         //record current address
@@ -214,15 +225,15 @@ void assemble(FILE *input, FILE *output){
         //register literal if operand begins with =. Do not place yet
         if (intermediateRep->operand[0] == '=') {
             //keep the full literal text as key
-            if (findLiteral(&littabList, intermediateRep->operand) == NULL) {
-                LitTabEntry *lit = (LitTabEntry*)calloc(1, sizeof(LitTabEntry));
+            if (findLiteral(littabList, intermediateRep->operand) == NULL) {
+                LitTabEntry* lit = (LitTabEntry*)calloc(1, sizeof(LitTabEntry));
                 lit->name = strdup(intermediateRep->operand);
                 //calculate length after =
                 int litLen = byteLikeLength(intermediateRep->operand + 1);
                 lit->length = litLen;
                 lit->address = -1;
                 lit->operand = 0; // this could hold a number value but is unused here
-                createAndAppendNode(&littabList, lit);
+                createAndAppendNode(littabList, lit);
             }
         }
 
@@ -232,28 +243,33 @@ void assemble(FILE *input, FILE *output){
         if (isDirective(intermediateRep->opcode)) {
             if (strcmp(mnemonic, "BYTE") == 0) {
                 locctrIncrement = byteLikeLength(intermediateRep->operand);
-            } else if (strcmp(mnemonic, "WORD") == 0) {
+            }
+            else if (strcmp(mnemonic, "WORD") == 0) {
                 locctrIncrement = 3;
-            } else if (strcmp(mnemonic, "RESB") == 0) {
+            }
+            else if (strcmp(mnemonic, "RESB") == 0) {
                 locctrIncrement = (int)parseIntAuto(intermediateRep->operand);
-            } else if (strcmp(mnemonic, "RESW") == 0) {
+            }
+            else if (strcmp(mnemonic, "RESW") == 0) {
                 locctrIncrement = 3 * (int)parseIntAuto(intermediateRep->operand);
-            } else if (strcmp(mnemonic, "BASE") == 0 || strcmp(mnemonic, "NOBASE") == 0) {
+            }
+            else if (strcmp(mnemonic, "BASE") == 0 || strcmp(mnemonic, "NOBASE") == 0) {
                 locctrIncrement = 0; // pass 1 bookkeeping only
-            } else if (strcmp(mnemonic, "*") == 0) {
+            }
+            else if (strcmp(mnemonic, "*") == 0) {
                 //operand must be a literal we have seen or new one
-                const char *litKey = intermediateRep->operand;
+                const char* litKey = intermediateRep->operand;
                 if (litKey == NULL || litKey[0] != '=') {
                     printf("Invalid literal placement on line %d. Terminating.\n", lineNum);
                     exit(12);
                 }
-                LitTabEntry *lit = findLiteral(&littabList, litKey);
+                LitTabEntry* lit = findLiteral(littabList, litKey);
                 if (lit == NULL) {
                     lit = (LitTabEntry*)calloc(1, sizeof(LitTabEntry));
                     lit->name = strdup(litKey);
                     lit->length = byteLikeLength(litKey + 1);
                     lit->address = -1;
-                    createAndAppendNode(&littabList, lit);
+                    createAndAppendNode(littabList, lit);
                 }
                 if (lit->length <= 0) {
                     printf("Invalid literal on line %d. Terminating.\n", lineNum);
@@ -262,17 +278,19 @@ void assemble(FILE *input, FILE *output){
                 if (lit->address == -1) {
                     lit->address = locctr;
                     locctrIncrement = lit->length;
-                } else {
+                }
+                else {
                     locctrIncrement = 0; // already placed
                 }
-            } else if (strcmp(mnemonic, "END") == 0) {
+            }
+            else if (strcmp(mnemonic, "END") == 0) {
                 //Append END record
-                createAndAppendNode(&intermediateList, intermediateRep);
+                createAndAppendNode(intermediateList, intermediateRep);
 
                 //place all unassigned literals at current LOCCTR
-                Node *cur = littabList.head;
+                Node* cur = littabList->head;
                 while (cur != NULL) {
-                    LitTabEntry *lit = (LitTabEntry*)cur->data;
+                    LitTabEntry* lit = (LitTabEntry*)cur->data;
                     if (lit != NULL && lit->address == -1 && lit->length > 0) {
                         lit->address = locctr;
                         locctr += lit->length;
@@ -281,39 +299,39 @@ void assemble(FILE *input, FILE *output){
                 }
 
                 programLength = locctr - startAddress;
-                if (((SymtabEntry*)symtabList.head->data)->csect[0] != '\0') {
-                    ((SymtabEntry*)symtabList.head->data)->length = programLength;
+                if (((SymtabEntry*)symtabList->head->data)->csect[0] != '\0') {
+                    ((SymtabEntry*)symtabList->head->data)->length = programLength;
                 }
                 //end pass 1
 
                 break;
-            } else {
+            }
+            else {
                 locctrIncrement = 0; //other recognized directives have no effect on LOCCTR in our pass 1
             }
-        } else {
+        }
+        else {
             //instruction size is determined by the parsed format 
             locctrIncrement = intermediateRep->format;
         }
 
-        createAndAppendNode(&intermediateList, intermediateRep);
+        createAndAppendNode(intermediateList, intermediateRep);
         locctr += locctrIncrement;
     }
 
-    if (strcmp(((IntermediateRep*)intermediateList.tail->data)->opcode->mnemonic, "END") != 0) {
+    if (strcmp(((IntermediateRep*)intermediateList->tail->data)->opcode->mnemonic, "END") != 0) {
         printf("Program ended without END directive. Terminating.\n");
         exit(16);
     }
 
-    Node* debugNode = symtabList.head;
+    Node* debugNode = symtabList->head;
     while (debugNode != NULL) {
         debugNode = debugNode->nextNode;
     }
-
-    pass2();
 }
 
-void pass2() {
-    Node* intermediateRepNode = intermediateList.head;
+void pass2(List* intermediateList, List* symtabList, List* littabList) {
+    Node* intermediateRepNode = intermediateList->head;
     bool canBase = false;
     char* baseLabel = NULL;
     int baseAddress = 0;
@@ -375,20 +393,20 @@ void pass2() {
                     if (intermediateRep->operand[0] == '#' ||
                         intermediateRep->operand[0] == '@'
                         ) {
-                        instruction = (instruction << 16) + format3ObjectCode(&intermediateRep->operand[1], intermediateRep->address + 3, canBase, baseAddress);
+                        instruction = (instruction << 16) + format3ObjectCode(&intermediateRep->operand[1], intermediateRep->address + 3, canBase, baseAddress, symtabList, littabList);
                     }
                     else {
-                        instruction = (instruction << 16) + format3ObjectCode(intermediateRep->operand, intermediateRep->address + 3, canBase, baseAddress);
+                        instruction = (instruction << 16) + format3ObjectCode(intermediateRep->operand, intermediateRep->address + 3, canBase, baseAddress, symtabList, littabList);
                     }
                 }
                 else if (intermediateRep->format == 4) {
                     if (intermediateRep->operand[0] == '#' ||
                         intermediateRep->operand[0] == '@'
                         ) {
-                        instruction = (instruction << 24) + format4ObjectCode(&intermediateRep->operand[1]);
+                        instruction = (instruction << 24) + format4ObjectCode(&intermediateRep->operand[1], symtabList, littabList);
                     }
                     else {
-                        instruction = (instruction << 24) + format4ObjectCode(intermediateRep->operand);
+                        instruction = (instruction << 24) + format4ObjectCode(intermediateRep->operand, symtabList, littabList);
                     }
                 }
 
@@ -399,7 +417,7 @@ void pass2() {
         else {
             if (strcmp(intermediateRep->opcode->mnemonic, "BASE") == 0) {
                 canBase = true;
-                SymtabEntry* symbol = findSymbol(&symtabList, intermediateRep->operand);
+                SymtabEntry* symbol = findSymbol(symtabList, intermediateRep->operand);
                 if (symbol == NULL) {
                     printf("Could not find symbol %s. Terminating.\n", intermediateRep->operand);
                     exit(31);
@@ -636,7 +654,7 @@ int getRegisterCode(char c) {
         
 }
 
-int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress) {
+int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress, List* symtabList, List* littabList) {
     int xbpe = 0b0000;
     int len = strlen(operand);
     int address = 0;
@@ -682,8 +700,8 @@ int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress) {
         label[OPERAND_COL_LEN] = '\0';
     }
     
-    SymtabEntry* symEntry = findSymbol(&symtabList, label);
-    LitTabEntry* litEntry = findLiteral(&littabList, label);
+    SymtabEntry* symEntry = findSymbol(symtabList, label);
+    LitTabEntry* litEntry = findLiteral(littabList, label);
     if (symEntry == NULL && litEntry == NULL) {
         printf("Symbol %s not found. Terminating.\n", label);
         exit(28);
@@ -713,7 +731,7 @@ int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress) {
     exit(30);
 }
 
-int format4ObjectCode(char* operand) {
+int format4ObjectCode(char* operand, List* symtabList, List* littabList) {
     int xbpe = 0b0001;
     int len = strlen(operand);
     int address = 0;
@@ -755,8 +773,8 @@ int format4ObjectCode(char* operand) {
         label[OPERAND_COL_LEN] = '\0';
     }
 
-    SymtabEntry* symEntry = findSymbol(&symtabList, label);
-    LitTabEntry* litEntry = findLiteral(&littabList, label);
+    SymtabEntry* symEntry = findSymbol(symtabList, label);
+    LitTabEntry* litEntry = findLiteral(littabList, label);
     if (symEntry == NULL && litEntry == NULL) {
         printf("Symbol %s not found. Terminating.\n", label);
         exit(35);
@@ -784,4 +802,33 @@ int expectedNumRegisters(char* operand) {
         return 1;
     }
     return 2;
+}
+
+void freeLists(List* intermediateList, List* symtabList, List* littabList) {
+    Node* node = intermediateList->head;
+    while (node != NULL) {
+        Node* nextNode = node->nextNode;
+        IntermediateRep* intermediateRep = (IntermediateRep*)node->data;
+        free(intermediateRep->comment);
+        free(node);
+        node = nextNode;
+    }
+
+    node = symtabList->head;
+    while (node != NULL) {
+        Node* nextNode = node->nextNode;
+        SymtabEntry* symtabEntry = (SymtabEntry*)node->data;
+        free(symtabEntry->flags);
+        free(node);
+        node = nextNode;
+    }
+
+    node = littabList->head;
+    while (node != NULL) {
+        Node* nextNode = node->nextNode;
+        LitTabEntry* litTabEntry = (LitTabEntry*)node->data;
+        free(litTabEntry->name);
+        free(node);
+        node = nextNode;
+    }
 }

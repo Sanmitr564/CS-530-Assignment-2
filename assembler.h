@@ -6,6 +6,11 @@
 #include "instructions.h"
 #endif
 
+#ifndef LINKEDLIST
+#define LINKEDLIST
+#include "linkedlist.h"
+#endif
+
 #define LABEL_MAX_LEN       6
 #define OPCODE_MAX_LEN      6
 #define LABEL_COL_LEN       8
@@ -40,8 +45,9 @@ typedef struct {
     int length;
 }LitTabEntry;
 
-void assemble(FILE *input, FILE *output);
-void pass2();
+void assemble(FILE *input, char* fileName);
+void pass1(FILE* input, List* intermediateList, List* symtabList, List* littabList);
+void pass2(List* intermediateList, List* symtabList, List* littabList);
 
 void parse(char *line, int lineNum, IntermediateRep *intermediateRep);
 
@@ -55,7 +61,8 @@ void getOperand(char *line, int lineNum, IntermediateRep *intermediateRep);
 void getOperandSpecial(char* line, int lineNum, IntermediateRep* intermediateRep, int startIndex);
 int format2ObjectCode(char* operand, int expected);
 int getRegisterCode(char c);
-int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress);
-int format4ObjectCode(char* operand);
+int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress, List* symtabList, List* littabList);
+int format4ObjectCode(char* operand, List* symtabList, List* littabList);
 bool isIndexed(char* str);
 int expectedNumRegisters(char* operand);
+void freeLists(List* intermediateList, List* symtabList, List* littabList);
