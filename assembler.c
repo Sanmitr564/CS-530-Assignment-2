@@ -281,6 +281,7 @@ void pass2() {
     Node* intermediateRepNode = intermediateList.head;
     bool canBase = false;
     char* baseLabel = NULL;
+    int baseAddress = 0;
 
     //TODO: Replace print with print to file
     while (intermediateRepNode != NULL) {
@@ -314,16 +315,61 @@ void pass2() {
 
         if (intermediateRep->format != -1) {
             int instruction = intermediateRep->opcode->opcode;
-            int ni = 0b11;
-            if (intermediateRep->operand[0] == '#') {
-                ni = 0b01;
-            }
-            else if (intermediateRep->operand[0] == '@') {
-                ni = 0b10;
-            }
-            instruction += ni;
 
-            printf("%02X", instruction);   
+            if (intermediateRep->format == 1) {
+
+            }
+            else if (strcmp(intermediateRep->opcode->mnemonic, "RSUB") == 0) {
+                instruction += 0b11;
+                instruction = instruction << ((intermediateRep->format - 2) * 8 + 4);
+            }
+            else {
+                int ni = 0b11;
+                if (intermediateRep->operand[0] == '#') {
+                    ni = 0b01;
+                }
+                else if (intermediateRep->operand[0] == '@') {
+                    ni = 0b10;
+                }
+                instruction += ni;
+                if (intermediateRep->format == 2) {
+                    instruction = (instruction << 8) + format2ObjectCode(intermediateRep->operand, 2);
+                }
+                else if (intermediateRep->format == 3) {
+                    if (intermediateRep->operand[0] == '#' ||
+                        intermediateRep->operand[0] == '@'
+                        ) {
+                        instruction = (instruction << 16) + format3ObjectCode(&intermediateRep->operand[1], intermediateRep->address + 3, canBase, baseAddress);
+                    }
+                    else {
+                        instruction = (instruction << 16) + format3ObjectCode(intermediateRep->operand, intermediateRep->address + 3, canBase, baseAddress);
+                    }
+                }
+                else if (intermediateRep->format == 4) {
+                    if (intermediateRep->operand[0] == '#' ||
+                        intermediateRep->operand[0] == '@'
+                        ) {
+                        instruction = (instruction << 24) + format4ObjectCode(&intermediateRep->operand[1]);
+                    }
+                    else {
+                        instruction = (instruction << 24) + format4ObjectCode(intermediateRep->operand);
+                    }
+                }
+
+            }
+
+            printf("%0*X", intermediateRep->format * 2, instruction);
+        }
+        else {
+            if (strcmp(intermediateRep->opcode->mnemonic, "BASE") == 0) {
+                canBase = true;
+                SymtabEntry* symbol = findSymbol(&symtabList, intermediateRep->operand);
+                if (symbol == NULL) {
+                    printf("Could not find symbol %s. Terminating.\n", intermediateRep->operand);
+                    exit(31);
+                }
+                baseAddress = symbol->value;
+            }
         }
         printf("\n");
         intermediateRepNode = intermediateRepNode->nextNode;
@@ -412,7 +458,7 @@ bool labelValidate(char* label){
         return false;
     }
     for(int i = 1; i < strlen(label); i++){
-        valid = valid && isalnum(label[i]);
+        valid = valid && (isalnum(label[i]) || label[i] == '_');
     }
     return valid;
 }
@@ -499,4 +545,196 @@ void getOperandSpecial(char* line, int lineNum, IntermediateRep* intermediateRep
     operand[OPERAND_COL_LEN] = '\0';
     char* strippedOperand = strip(operand);
     strcpy(intermediateRep->operand, strippedOperand);
+}
+
+int format2ObjectCode(char* operand, int expected) {
+
+    if (strlen(operand) == 1 && expected == 1) {
+        int code = getRegisterCode(operand[0]);
+        if (code == -1) {
+            printf("Register %c does not exist or cannot be accessed in this way. Terminating.\n", operand[0]);
+            exit(18);
+        }
+        return code << 4;
+    }
+
+    if (strlen(operand) == 3 && expected == 2) {
+        if (operand[1] != ',') {
+            printf("Incorrectly formatted format 2 operand %s. Terminating.\n", operand);
+            exit(19);
+        }
+        int code1 = getRegisterCode(operand[0]);
+        int code2 = getRegisterCode(operand[2]);
+
+        if (code1 == -1 || code2 == -1) {
+            printf("Register %c or %c does not exist or cannot be accessed in this way. Terminating.\n", operand[0], operand[2]);
+            exit(20);
+        }
+
+        return (code1 << 4) + code2;
+    }
+
+    printf("Incorrect format 2 operand %s. Terminating.\n", operand);
+    exit(17);
+}
+
+int getRegisterCode(char c) {
+    switch (c) {
+        case 'A':
+            return 0;
+        case 'X':
+            return 1;
+        case 'L':
+            return 2;
+        case 'B':
+            return 3;
+        case 'S':
+            return 4;
+        case 'T':
+            return 5;
+        case 'F':
+            return 6;
+        default:
+            return -1;
+    }
+        
+}
+
+int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress) {
+    int xbpe = 0b0000;
+    int len = strlen(operand);
+    int address = 0;
+
+    if (isIndexed(operand)) {
+        if (operand[0] == '=') {
+            printf("Illegal addressing mode for operand %s. Terminating.\n", operand);
+            exit(25);
+        }
+        xbpe += 0b1000;
+    }
+
+    if (isdigit(operand[0])) {
+        int i = 0;
+        while (isdigit(operand[++i]));
+        if (isIndexed(operand)) {
+            if (i != len - 1) {
+                printf("Improper operand %s. Terminating.", operand);
+                exit(26);
+            }
+        }
+        else {
+            if (i != len) {
+                printf("Improper operand %s. Terminating.", operand);
+                exit(27);
+            }
+        }
+        address = atoi(operand);
+        if (address > 4095) {
+            printf("Value %d not representable with format 3. Terminating.\n", address);
+            exit(29);
+        }
+        return (xbpe << 12) + address;
+    }
+    
+    char label[LABEL_MAX_LEN + 1];
+    if (isIndexed(operand)) {
+        strncpy(label, operand, LABEL_MAX_LEN < len - 2 ? LABEL_MAX_LEN : len - 2);
+        label[LABEL_MAX_LEN < len - 2 ? LABEL_MAX_LEN : len - 2] = '\0';
+    }
+    else {
+        strncpy(label, operand, LABEL_MAX_LEN);
+        label[LABEL_MAX_LEN] = '\0';
+    }
+    
+    SymtabEntry* symEntry = findSymbol(&symtabList, label);
+    LitTabEntry* litEntry = findLiteral(&littabList, label);
+    if (symEntry == NULL && litEntry == NULL) {
+        printf("Symbol %s not found. Terminating.\n", label);
+        exit(28);
+    }
+    
+    if (symEntry != NULL) {
+        address = symEntry->value;
+    }
+    else {
+        address = litEntry->address;
+    }
+   
+    int offset = address - pc;
+    if (offset >= -2048 && offset <= 2047) {
+        xbpe += 0b0010;
+        return (xbpe << 12) + (offset & 0xfff);
+    }
+    else if (canBase) {
+        int baseoffset = address - baseAddress;
+        if (baseoffset >= 0 && baseoffset < 4096) {
+            xbpe += 0b0100;
+            return (xbpe << 12) + baseoffset;
+        }
+    }
+
+    printf("Cannot reach address designated by %s with a format 3 instruction. Terminating.\n", operand);
+    exit(30);
+}
+
+int format4ObjectCode(char* operand) {
+    int xbpe = 0b0001;
+    int len = strlen(operand);
+    int address = 0;
+
+    if (isIndexed(operand)) {
+        if (operand[0] == '=') {
+            printf("Illegal addressing mode for operand %s. Terminating.\n", operand);
+            exit(32);
+        }
+        xbpe += 0b1000;
+    }
+
+    if (isdigit(operand[0])) {
+        int i = 0;
+        while (isdigit(operand[++i]));
+        if (isIndexed(operand)) {
+            if (i != len - 1) {
+                printf("Improper operand %s. Terminating.", operand);
+                exit(33);
+            }
+        }
+        else {
+            if (i != len) {
+                printf("Improper operand %s. Terminating.", operand);
+                exit(34);
+            }
+        }
+        address = atoi(operand);
+        return (xbpe << 20) + address;
+    }
+
+    char label[OPERAND_COL_LEN + 1];
+    if (isIndexed(operand)) {
+        strncpy(label, operand, OPERAND_COL_LEN < len - 2 ? OPERAND_COL_LEN : len - 2);
+        label[OPERAND_COL_LEN < len - 2 ? OPERAND_COL_LEN : len - 2] = '\0';
+    }
+    else {
+        strncpy(label, operand, OPERAND_COL_LEN);
+        label[OPERAND_COL_LEN] = '\0';
+    }
+
+    SymtabEntry* symEntry = findSymbol(&symtabList, label);
+    LitTabEntry* litEntry = findLiteral(&littabList, label);
+    if (symEntry == NULL && litEntry == NULL) {
+        printf("Symbol %s not found. Terminating.\n", label);
+        exit(35);
+    }
+
+    if (symEntry != NULL) {
+        address = symEntry->value;
+    }
+    else {
+        address = litEntry->address;
+    }
+    return (xbpe << 20) + address;
+}
+
+bool isIndexed(char* str) {
+    return strlen(str) > 2 && str[strlen(str) - 1] == 'X' && str[strlen(str) - 2] == ',';
 }
