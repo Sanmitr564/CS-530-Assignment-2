@@ -40,7 +40,6 @@ typedef struct {
     int length;
 }LitTabEntry;
 
-
 void assemble(FILE *input, FILE *output);
 void pass2();
 
@@ -54,3 +53,8 @@ void getLabel(char *line, int lineNum, IntermediateRep *intermediateRep);
 void getOpcode(char *line, int lineNum, IntermediateRep *intermediateRep);
 void getOperand(char *line, int lineNum, IntermediateRep *intermediateRep);
 void getOperandSpecial(char* line, int lineNum, IntermediateRep* intermediateRep, int startIndex);
+int format2ObjectCode(char* operand, int expected);
+int getRegisterCode(char c);
+int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress);
+int format4ObjectCode(char* operand);
+bool isIndexed(char* str);
