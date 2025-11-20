@@ -82,6 +82,18 @@ static int byteLikeLength(const char *operand) {
     return len / 2;
 }
 
+static long getConstValue(char* operand) {
+    if (strlen(operand) < 4 || (operand[0] != 'X' && operand[0] != 'C') || operand[1] != '\'' || operand[strlen(operand) - 1] != '\'') {
+        printf("%s is not a constant. Terminating.\n", operand);
+        exit(41);
+    }
+    if (operand[0] == 'X') {
+        return getHexValue(&operand[2]);
+    }
+    return getCharValue(operand + 2);
+
+}
+
 static long getHexValue(char* operand) {
     const char* end = strrchr(operand, '\'');
     if (end == NULL) {
@@ -107,11 +119,18 @@ static long getHexValue(char* operand) {
         printf("Invalid hexadecimal %s. Terminating.", operand);
         exit(36);
     }
-    return strtol(operand, operand + len - 1, 16);
+    return strtol(operand, NULL, 16);
 }
 
 static long getCharValue(char* operand) {
-
+    long value = 0;
+    unsigned char* bytes = (unsigned char*)operand;
+    for (int i = 0; i < strlen(operand) - 1; i++) {
+        value += bytes[i];
+        value = value << 8;
+    }
+    value = value >> 8;
+    return value;
 }
 
 //literal key is the full literal text, like: "=C'EOF'"
@@ -340,6 +359,11 @@ void pass2(List* intermediateList, List* symtabList, List* littabList) {
     while (intermediateRepNode != NULL) {
         IntermediateRep* intermediateRep = (IntermediateRep*)intermediateRepNode->data;
 
+        if (intermediateRep->opcode != NULL && strcmp(intermediateRep->opcode->mnemonic, "END") == 0) {
+            printf("                 END      %s\n", intermediateRep->operand);
+            return;
+        }
+
         if (intermediateRep->comment != NULL && strlen(intermediateRep->comment) != 0) {
             printf("%s", intermediateRep->comment);
             intermediateRepNode = intermediateRepNode->nextNode;
@@ -423,6 +447,12 @@ void pass2(List* intermediateList, List* symtabList, List* littabList) {
                     exit(31);
                 }
                 baseAddress = symbol->value;
+            }
+            else if (strcmp(intermediateRep->opcode->mnemonic, "BYTE") == 0) {
+                printf("%0*X", byteLikeLength(intermediateRep->operand) * 2, getConstValue(intermediateRep->operand));
+            }
+            else if (strcmp(intermediateRep->opcode->mnemonic, "WORD") == 0) {
+
             }
         }
         printf("\n");
