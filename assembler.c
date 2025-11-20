@@ -172,7 +172,7 @@ void assemble(FILE *input, char* fileName){
     littabList.head = littabList.tail = NULL;
 
     pass1(input, &intermediateList, &symtabList, &littabList);
-    pass2(&intermediateList, &symtabList, &littabList);
+    pass2(fileName, &intermediateList, &symtabList, &littabList);
 
     freeLists(&intermediateList, &symtabList, &littabList);
 }
@@ -349,45 +349,56 @@ void pass1(FILE* input, List* intermediateList, List* symtabList, List* littabLi
     }
 }
 
-void pass2(List* intermediateList, List* symtabList, List* littabList) {
+void pass2(char* fileName, List* intermediateList, List* symtabList, List* littabList) {
     Node* intermediateRepNode = intermediateList->head;
     bool canBase = false;
     char* baseLabel = NULL;
     int baseAddress = 0;
+
+    char listingFileName[100];
+    char symtabFileName[100];
+    FILE* listingFile;
+    FILE* symtabFile;
+
+    snprintf(listingFileName, sizeof(listingFileName), "%s.l", fileName);
+    snprintf(symtabFileName, sizeof(symtabFileName), "%s.st", fileName);
+
+    listingFile = fopen(listingFileName, "w");
+    symtabFile = fopen(symtabFileName, "w");
 
     //TODO: Replace print with print to file
     while (intermediateRepNode != NULL) {
         IntermediateRep* intermediateRep = (IntermediateRep*)intermediateRepNode->data;
 
         if (intermediateRep->opcode != NULL && strcmp(intermediateRep->opcode->mnemonic, "END") == 0) {
-            printf("                 END      %s\n", intermediateRep->operand);
+            fprintf(listingFile, "                 END      %s\n", intermediateRep->operand);
             return;
         }
 
         if (intermediateRep->comment != NULL && strlen(intermediateRep->comment) != 0) {
-            printf("%s", intermediateRep->comment);
+            fprintf(listingFile, "%s", intermediateRep->comment);
             intermediateRepNode = intermediateRepNode->nextNode;
             continue;
         }
 
-        printf("%04X    ", intermediateRep->address);
-        printf("%-8s", intermediateRep->label);
+        fprintf(listingFile, "%04X    ", intermediateRep->address);
+        fprintf(listingFile, "%-8s", intermediateRep->label);
         if (intermediateRep->format == 4) {
-            printf("+");
+            fprintf(listingFile, "+");
         }
         else {
-            printf(" ");
+            fprintf(listingFile, " ");
         }
-        printf("%-8s", intermediateRep->opcode->mnemonic);
+        fprintf(listingFile, "%-8s", intermediateRep->opcode->mnemonic);
         if (
             intermediateRep->operand[0] == '#' ||
             intermediateRep->operand[0] == '@' ||
             intermediateRep->operand[0] == '='
             ) {
-            printf("%-26s", intermediateRep->operand);
+            fprintf(listingFile, "%-26s", intermediateRep->operand);
         }
         else {
-            printf(" %-25s", intermediateRep->operand);
+            fprintf(listingFile, " %-25s", intermediateRep->operand);
         }
 
         if (intermediateRep->format != -1) {
@@ -436,7 +447,7 @@ void pass2(List* intermediateList, List* symtabList, List* littabList) {
 
             }
 
-            printf("%0*X", intermediateRep->format * 2, instruction);
+           fprintf(listingFile, "%0*X", intermediateRep->format * 2, instruction);
         }
         else {
             if (strcmp(intermediateRep->opcode->mnemonic, "BASE") == 0) {
@@ -449,7 +460,7 @@ void pass2(List* intermediateList, List* symtabList, List* littabList) {
                 baseAddress = symbol->value;
             }
             else if (strcmp(intermediateRep->opcode->mnemonic, "BYTE") == 0) {
-                printf("%0*X", byteLikeLength(intermediateRep->operand) * 2, getConstValue(intermediateRep->operand));
+                fprintf(listingFile, "%0*X", byteLikeLength(intermediateRep->operand) * 2, getConstValue(intermediateRep->operand));
             }
             else if (strcmp(intermediateRep->opcode->mnemonic, "WORD") == 0) {
                 long value = 0;
@@ -468,12 +479,14 @@ void pass2(List* intermediateList, List* symtabList, List* littabList) {
                     printf("%s cannot be expressed in 3 bytes. Terminating.\n", intermediateRep->operand);
                     exit(43);
                 }
-                printf("%06X", value);
+                fprintf(listingFile, "%06X", value);
             }
         }
-        printf("\n");
+        fprintf(listingFile, "\n");
         intermediateRepNode = intermediateRepNode->nextNode;
     }
+    fclose(listingFile);
+    fclose(symtabFile);
 }
 
 //Parses each line and puts the parts into intermediateRep
