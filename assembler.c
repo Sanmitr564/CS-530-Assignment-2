@@ -70,8 +70,43 @@ static int byteLikeLength(const char *operand) {
     for (int i = 0; i < len; i++) {
         if (!isHexDigit(content[i])) return 0;
     }
-    if (len % 2 != 0) return 0;
+    if (len % 2 != 0) {
+        printf("Invalid hexadecimal %s. Terminating.", operand);
+        exit(36);
+    }
     return len / 2;
+}
+
+static long getHexValue(char* operand) {
+    const char* end = strrchr(operand, '\'');
+    if (end == NULL) {
+        printf("Invalid hexadecimal %s. Terminating.", operand);
+        exit(37);
+    }
+
+    int len = (int)(end - operand);
+    if (len < 0) {
+        printf("Invalid hexadecimal %s. Terminating.", operand);
+        exit(38);
+    }
+
+    // type == 'X'
+    //check all hex digits and even count
+    for (int i = 0; i < len; i++) {
+        if (!isHexDigit(operand[i])) {
+            printf("Invalid hexadecimal character found in %s. Terminating.", operand);
+            exit(38);
+        }
+    }
+    if (len % 2 != 0) {
+        printf("Invalid hexadecimal %s. Terminating.", operand);
+        exit(36);
+    }
+    return strtol(operand, operand + len - 1, 16);
+}
+
+static long getCharValue(char* operand) {
+
 }
 
 //literal key is the full literal text, like: "=C'EOF'"
