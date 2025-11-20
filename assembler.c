@@ -321,7 +321,10 @@ void pass2() {
             }
             else if (strcmp(intermediateRep->opcode->mnemonic, "RSUB") == 0) {
                 instruction += 0b11;
-                instruction = instruction << ((intermediateRep->format - 2) * 8 + 4);
+                instruction = instruction << ((intermediateRep->format - 1) * 8);
+            }
+            else if (intermediateRep->format == 2) {
+                instruction = (instruction << 8) + format2ObjectCode(intermediateRep->operand, expectedNumRegisters(intermediateRep->opcode->mnemonic));
             }
             else {
                 int ni = 0b11;
@@ -332,10 +335,8 @@ void pass2() {
                     ni = 0b10;
                 }
                 instruction += ni;
-                if (intermediateRep->format == 2) {
-                    instruction = (instruction << 8) + format2ObjectCode(intermediateRep->operand, 2);
-                }
-                else if (intermediateRep->format == 3) {
+                
+                if (intermediateRep->format == 3) {
                     if (intermediateRep->operand[0] == '#' ||
                         intermediateRep->operand[0] == '@'
                         ) {
@@ -401,12 +402,6 @@ void parse(char *line, int lineNum, IntermediateRep *intermediateRep){
         return;
     }
 
-    //if line is not long enough to have all required parts, end
-    if(strlen(line) < OPCODE_COL_LEN + 1 + LABEL_COL_LEN + 2){
-        printf("Incorrect formatting on line %d. Terminating.\n", lineNum);
-        exit(4);
-    }
-
     //check for required whitespace
     if(
         line[8] != ' '
@@ -421,6 +416,13 @@ void parse(char *line, int lineNum, IntermediateRep *intermediateRep){
     if (intermediateRep->format == 1 || strcmp(intermediateRep->opcode->mnemonic, "RSUB") == 0) {
         return;
     }
+
+    //if line is not long enough to have all required parts, end
+    if (strlen(line) < OPCODE_COL_LEN + 1 + LABEL_COL_LEN + 2) {
+        printf("Incorrect formatting on line %d. Terminating.\n", lineNum);
+        exit(4);
+    }
+
     if (
         line[15] != ' ' ||
         line[16] != ' '
@@ -548,7 +550,6 @@ void getOperandSpecial(char* line, int lineNum, IntermediateRep* intermediateRep
 }
 
 int format2ObjectCode(char* operand, int expected) {
-
     if (strlen(operand) == 1 && expected == 1) {
         int code = getRegisterCode(operand[0]);
         if (code == -1) {
@@ -636,14 +637,14 @@ int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress) {
         return (xbpe << 12) + address;
     }
     
-    char label[LABEL_MAX_LEN + 1];
+    char label[OPERAND_COL_LEN + 1];
     if (isIndexed(operand)) {
-        strncpy(label, operand, LABEL_MAX_LEN < len - 2 ? LABEL_MAX_LEN : len - 2);
-        label[LABEL_MAX_LEN < len - 2 ? LABEL_MAX_LEN : len - 2] = '\0';
+        strncpy(label, operand, OPERAND_COL_LEN < len - 2 ? OPERAND_COL_LEN : len - 2);
+        label[OPERAND_COL_LEN < len - 2 ? OPERAND_COL_LEN : len - 2] = '\0';
     }
     else {
-        strncpy(label, operand, LABEL_MAX_LEN);
-        label[LABEL_MAX_LEN] = '\0';
+        strncpy(label, operand, OPERAND_COL_LEN);
+        label[OPERAND_COL_LEN] = '\0';
     }
     
     SymtabEntry* symEntry = findSymbol(&symtabList, label);
@@ -737,4 +738,15 @@ int format4ObjectCode(char* operand) {
 
 bool isIndexed(char* str) {
     return strlen(str) > 2 && str[strlen(str) - 1] == 'X' && str[strlen(str) - 2] == ',';
+}
+
+int expectedNumRegisters(char* operand) {
+    if (
+        strcmp(operand, "CLEAR") == 0 ||
+        strcmp(operand, "SVC") == 0 ||
+        strcmp(operand, "TIXR") == 0
+        ) {
+        return 1;
+    }
+    return 2;
 }

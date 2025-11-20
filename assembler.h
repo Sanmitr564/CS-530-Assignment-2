@@ -58,3 +58,4 @@ int getRegisterCode(char c);
 int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress);
 int format4ObjectCode(char* operand);
 bool isIndexed(char* str);
+int expectedNumRegisters(char* operand);
