@@ -452,7 +452,23 @@ void pass2(List* intermediateList, List* symtabList, List* littabList) {
                 printf("%0*X", byteLikeLength(intermediateRep->operand) * 2, getConstValue(intermediateRep->operand));
             }
             else if (strcmp(intermediateRep->opcode->mnemonic, "WORD") == 0) {
-
+                long value = 0;
+                char* end;
+                if (isdigit(intermediateRep->operand[0])) {
+                    value = strtol(intermediateRep->operand, &end, 10);
+                    if (end != intermediateRep->operand + strlen(intermediateRep->operand)) {
+                        printf("%s is not a number. Terminating.\n", intermediateRep->operand);
+                        exit(42);
+                    }
+                }
+                else {
+                    value = getConstValue(intermediateRep->operand);
+                }
+                if (value < 0 || value > 0xFFFFFF) {
+                    printf("%s cannot be expressed in 3 bytes. Terminating.\n", intermediateRep->operand);
+                    exit(43);
+                }
+                printf("%06X", value);
             }
         }
         printf("\n");
