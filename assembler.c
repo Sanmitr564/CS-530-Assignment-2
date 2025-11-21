@@ -366,7 +366,6 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
     listingFile = fopen(listingFileName, "w");
     symtabFile = fopen(symtabFileName, "w");
 
-    //TODO: Replace print with print to file
     while (intermediateRepNode != NULL) {
         IntermediateRep* intermediateRep = (IntermediateRep*)intermediateRepNode->data;
 
@@ -382,6 +381,14 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
         }
 
         fprintf(listingFile, "%04X    ", intermediateRep->address);
+
+        if (intermediateRep->opcode != NULL && strcmp(intermediateRep->opcode->mnemonic, "*") == 0) {
+            long value = getConstValue(&intermediateRep->operand[1]);
+            fprintf(listingFile, "*       %s                            %X\n", intermediateRep->operand, (unsigned int)value);
+            intermediateRepNode = intermediateRepNode->nextNode;
+            continue;
+        }
+
         fprintf(listingFile, "%-8s", intermediateRep->label);
         if (intermediateRep->format == 4) {
             fprintf(listingFile, "+");
