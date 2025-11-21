@@ -28,11 +28,12 @@
 #include "instructions.h"
 #endif
 
-
+//return 1 if directive, 0 otherwise
 static int isDirective(const Opcode *op) {
     return op != NULL && op->formats == 0;
 }
 
+//parse int
 static unsigned int parseIntAuto(const char *text) {
     if (text == NULL) return 0;
     //allow 0xHEX or decimal. plain HEX if prefixed with 0x 
@@ -82,11 +83,14 @@ static int byteLikeLength(const char *operand) {
     return len / 2;
 }
 
+//given a constant X'..'/C'..' return its value
 static long getConstValue(char* operand) {
+    //check formatting
     if (strlen(operand) < 4 || (operand[0] != 'X' && operand[0] != 'C') || operand[1] != '\'' || operand[strlen(operand) - 1] != '\'') {
         printf("%s is not a constant. Terminating.\n", operand);
         exit(41);
     }
+    
     if (operand[0] == 'X') {
         return getHexValue(&operand[2]);
     }
@@ -94,6 +98,8 @@ static long getConstValue(char* operand) {
 
 }
 
+//expects string of the form "{hex chars}'"
+//returns value of hex string
 static long getHexValue(char* operand) {
     const char* end = strrchr(operand, '\'');
     if (end == NULL) {
@@ -107,7 +113,6 @@ static long getHexValue(char* operand) {
         exit(38);
     }
 
-    // type == 'X'
     //check all hex digits and even count
     for (int i = 0; i < len; i++) {
         if (!isHexDigit(operand[i])) {
@@ -119,9 +124,12 @@ static long getHexValue(char* operand) {
         printf("Invalid hexadecimal %s. Terminating.", operand);
         exit(36);
     }
+    //return value
     return strtol(operand, NULL, 16);
 }
 
+//expects string of the form "{chars}'"
+//returns long of the string's byte values
 static long getCharValue(char* operand) {
     long value = 0;
     unsigned char* bytes = (unsigned char*)operand;
@@ -147,6 +155,7 @@ static LitTabEntry *findLiteral(List *list, const char *literalKey) {
     return NULL;
 }
 
+//find and return symbol from symtable
 static SymtabEntry *findSymbol(List *list, const char *label) {
     if (list == NULL || list->head == NULL || label == NULL || label[0] == '\0') return NULL;
     Node *cur = list->head;
@@ -160,13 +169,13 @@ static SymtabEntry *findSymbol(List *list, const char *label) {
     return NULL;
 }
 
-//Performs pass 1
+//Performs passes 1 and 2
 void assemble(FILE *input, char* fileName){
     List intermediateList;
     List symtabList;
     List littabList;
 
-    //initialize lists with heads so addNode works
+    //initialize lists so addNode works
     intermediateList.head = intermediateList.tail = NULL;
     symtabList.head = symtabList.tail = NULL;
     littabList.head = littabList.tail = NULL;
@@ -174,9 +183,11 @@ void assemble(FILE *input, char* fileName){
     pass1(input, &intermediateList, &symtabList, &littabList);
     pass2(fileName, &intermediateList, &symtabList, &littabList);
 
+    //free memory used by list data entries (should be the only dynamically allocated memory) to prevent leaks and prepare for next input file
     freeLists(&intermediateList, &symtabList, &littabList);
 }
 
+//reads from input and populates lists with relevant information for second pass
 void pass1(FILE* input, List* intermediateList, List* symtabList, List* littabList) {
     int lineNum = 0;
     char buffer[LINE_MAX_LEN + 1];
@@ -198,6 +209,7 @@ void pass1(FILE* input, List* intermediateList, List* symtabList, List* littabLi
         lineNum++;
         IntermediateRep* intermediateRep = (IntermediateRep*)calloc(1, sizeof(IntermediateRep));
 
+        //separates [label][opcode][operand] into a more workable state
         parse(dirtyLine, lineNum, intermediateRep);
 
         // store and continue no change to LOCCTR 
@@ -338,23 +350,30 @@ void pass1(FILE* input, List* intermediateList, List* symtabList, List* littabLi
         locctr += locctrIncrement;
     }
 
+    //enforce program ends with END
     if (strcmp(((IntermediateRep*)intermediateList->tail->data)->opcode->mnemonic, "END") != 0) {
         printf("Program ended without END directive. Terminating.\n");
         exit(16);
     }
-
+    //debug code for easily reading lists
+    /*
     Node* debugNode = symtabList->head;
     while (debugNode != NULL) {
         debugNode = debugNode->nextNode;
     }
+    */
 }
 
+//determine object code and print to output files
 void pass2(char* fileName, List* intermediateList, List* symtabList, List* littabList) {
     Node* intermediateRepNode = intermediateList->head;
+
+    //base information
     bool canBase = false;
     char* baseLabel = NULL;
     int baseAddress = 0;
 
+    //create output files
     char listingFileName[100];
     char symtabFileName[100];
     FILE* listingFile;
@@ -366,14 +385,17 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
     listingFile = fopen(listingFileName, "w");
     symtabFile = fopen(symtabFileName, "w");
 
+    //go through each intermediateRepNode (simulates one line of the intermediary file)
     while (intermediateRepNode != NULL) {
         IntermediateRep* intermediateRep = (IntermediateRep*)intermediateRepNode->data;
 
+        //special formatting for END
         if (intermediateRep->opcode != NULL && strcmp(intermediateRep->opcode->mnemonic, "END") == 0) {
             fprintf(listingFile, "                 END      %s\n", intermediateRep->operand);
             break;
         }
 
+        //special formatting for comments
         if (intermediateRep->comment != NULL && strlen(intermediateRep->comment) != 0) {
             fprintf(listingFile, "%s", intermediateRep->comment);
             intermediateRepNode = intermediateRepNode->nextNode;
@@ -382,6 +404,7 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
 
         fprintf(listingFile, "%04X    ", intermediateRep->address);
 
+        //special formatting for *
         if (intermediateRep->opcode != NULL && strcmp(intermediateRep->opcode->mnemonic, "*") == 0) {
             long value = getConstValue(&intermediateRep->operand[1]);
             fprintf(listingFile, "*       %s                            %X\n", intermediateRep->operand, (unsigned int)value);
@@ -390,13 +413,17 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
         }
 
         fprintf(listingFile, "%-8s", intermediateRep->label);
+
         if (intermediateRep->format == 4) {
             fprintf(listingFile, "+");
         }
         else {
             fprintf(listingFile, " ");
         }
+
         fprintf(listingFile, "%-8s", intermediateRep->opcode->mnemonic);
+        
+        //different formatting for special addressing mode indicators
         if (
             intermediateRep->operand[0] == '#' ||
             intermediateRep->operand[0] == '@' ||
@@ -408,20 +435,24 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
             fprintf(listingFile, " %-25s", intermediateRep->operand);
         }
 
+        //if instruction
         if (intermediateRep->format != -1) {
             int instruction = intermediateRep->opcode->opcode;
 
             if (intermediateRep->format == 1) {
-
+                //format 1 instructions don't need anything special
             }
             else if (strcmp(intermediateRep->opcode->mnemonic, "RSUB") == 0) {
+                //special formatting for RSUB
                 instruction += 0b11;
                 instruction = instruction << ((intermediateRep->format - 1) * 8);
             }
             else if (intermediateRep->format == 2) {
+                //complete object code formatting for format 2
                 instruction = (instruction << 8) + format2ObjectCode(intermediateRep->operand, expectedNumRegisters(intermediateRep->opcode->mnemonic));
             }
             else {
+                //figure out ni bits for format 3/4
                 int ni = 0b11;
                 if (intermediateRep->operand[0] == '#') {
                     ni = 0b01;
@@ -431,6 +462,7 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
                 }
                 instruction += ni;
                 
+                //add xbpe and operand bits to object code
                 if (intermediateRep->format == 3) {
                     if (intermediateRep->operand[0] == '#' ||
                         intermediateRep->operand[0] == '@'
@@ -453,10 +485,13 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
                 }
 
             }
-
+            //print completed object code to listing file
            fprintf(listingFile, "%0*X", intermediateRep->format * 2, instruction);
         }
+        //if directive
+        //most directives have unique effects
         else {
+            //if base directive, tell assembler base relative addressing is allowed and what to expect for base
             if (strcmp(intermediateRep->opcode->mnemonic, "BASE") == 0) {
                 canBase = true;
                 SymtabEntry* symbol = findSymbol(symtabList, intermediateRep->operand);
@@ -466,12 +501,15 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
                 }
                 baseAddress = symbol->value;
             }
+            //end base relative addressing
             else if (strcmp(intermediateRep->opcode->mnemonic, "NOBASE") == 0) {
                 canBase = false;
             }
+            //BYTE expects a constant so no fancy checks needed
             else if (strcmp(intermediateRep->opcode->mnemonic, "BYTE") == 0) {
                 fprintf(listingFile, "%0*X", (unsigned int)byteLikeLength(intermediateRep->operand) * 2, (unsigned int)getConstValue(intermediateRep->operand));
             }
+            //WORD can take a constant or a number
             else if (strcmp(intermediateRep->opcode->mnemonic, "WORD") == 0) {
                 long value = 0;
                 char* end;
@@ -491,7 +529,7 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
                 }
                 fprintf(listingFile, "%06X", (unsigned int)value);
             }
-        }
+        }// end of instruction/directive printing
         fprintf(listingFile, "\n");
         intermediateRepNode = intermediateRepNode->nextNode;
     }
@@ -658,7 +696,7 @@ void getOpcode(char *line, int lineNum, IntermediateRep *intermediateRep){
     }
 }
 
-//Gets operand from a line in most cases
+//Gets operand from a line for most cases
 void getOperand(char *line, int lineNum, IntermediateRep *intermediateRep){
     getOperandSpecial(line, lineNum, intermediateRep, 17);
 }
@@ -672,6 +710,8 @@ void getOperandSpecial(char* line, int lineNum, IntermediateRep* intermediateRep
     strcpy(intermediateRep->operand, strippedOperand);
 }
 
+//takes operand and the number of expected registers as arguments
+//returns bottom 8 bits of the instruction
 int format2ObjectCode(char* operand, int expected) {
     if (strlen(operand) == 1 && expected == 1) {
         int code = getRegisterCode(operand[0]);
@@ -702,6 +742,7 @@ int format2ObjectCode(char* operand, int expected) {
     exit(17);
 }
 
+//gets register codes
 int getRegisterCode(char c) {
     switch (c) {
         case 'A':
@@ -724,11 +765,14 @@ int getRegisterCode(char c) {
         
 }
 
+//takes in operand, pc counter, base information, symtab, and littab
+//returns xbpe and displacement bits
 int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress, List* symtabList, List* littabList) {
     int xbpe = 0b0000;
     int len = strlen(operand);
     int address = 0;
 
+    //literals cant be indexed
     if (isIndexed(operand)) {
         if (operand[0] == '=') {
             printf("Illegal addressing mode for operand %s. Terminating.\n", operand);
@@ -737,6 +781,7 @@ int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress, List
         xbpe += 0b1000;
     }
 
+    //determine if operand is integer
     if (isdigit(operand[0])) {
         int i = 0;
         while (isdigit(operand[++i]));
@@ -760,6 +805,7 @@ int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress, List
         return (xbpe << 12) + address;
     }
     
+    //otherwise operand is symbol or literal
     char label[OPERAND_COL_LEN + 1];
     if (isIndexed(operand)) {
         strncpy(label, operand, OPERAND_COL_LEN < len - 2 ? OPERAND_COL_LEN : len - 2);
@@ -770,6 +816,7 @@ int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress, List
         label[OPERAND_COL_LEN] = '\0';
     }
     
+    //find symbol or literal and get address
     SymtabEntry* symEntry = findSymbol(symtabList, label);
     LitTabEntry* litEntry = findLiteral(littabList, label);
     if (symEntry == NULL && litEntry == NULL) {
@@ -784,6 +831,7 @@ int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress, List
         address = litEntry->address;
     }
    
+    //determine if address can be reached
     int offset = address - pc;
     if (offset >= -2048 && offset <= 2047) {
         xbpe += 0b0010;
@@ -801,11 +849,14 @@ int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress, List
     exit(30);
 }
 
+//takes in operand, symtabm and littab
+//returns xbpe and address
 int format4ObjectCode(char* operand, List* symtabList, List* littabList) {
     int xbpe = 0b0001;
     int len = strlen(operand);
     int address = 0;
 
+    //literals cant be indexed
     if (isIndexed(operand)) {
         if (operand[0] == '=') {
             printf("Illegal addressing mode for operand %s. Terminating.\n", operand);
@@ -814,6 +865,7 @@ int format4ObjectCode(char* operand, List* symtabList, List* littabList) {
         xbpe += 0b1000;
     }
 
+    //determine if operand is integer
     if (isdigit(operand[0])) {
         int i = 0;
         while (isdigit(operand[++i]));
@@ -833,6 +885,7 @@ int format4ObjectCode(char* operand, List* symtabList, List* littabList) {
         return (xbpe << 20) + address;
     }
 
+    //otherwise operand is symbol or literal
     char label[OPERAND_COL_LEN + 1];
     if (isIndexed(operand)) {
         strncpy(label, operand, OPERAND_COL_LEN < len - 2 ? OPERAND_COL_LEN : len - 2);
@@ -843,6 +896,7 @@ int format4ObjectCode(char* operand, List* symtabList, List* littabList) {
         label[OPERAND_COL_LEN] = '\0';
     }
 
+    //find symbol or literal and get address
     SymtabEntry* symEntry = findSymbol(symtabList, label);
     LitTabEntry* litEntry = findLiteral(littabList, label);
     if (symEntry == NULL && litEntry == NULL) {
@@ -856,13 +910,17 @@ int format4ObjectCode(char* operand, List* symtabList, List* littabList) {
     else {
         address = litEntry->address;
     }
+
+    //assume address can be reached as its format 4
     return (xbpe << 20) + address;
 }
 
+//determine if operand uses indexed addressing
 bool isIndexed(char* str) {
     return strlen(str) > 2 && str[strlen(str) - 1] == 'X' && str[strlen(str) - 2] == ',';
 }
 
+//returns the expected number of registers for format 2 instructions
 int expectedNumRegisters(const char* operand) {
     if (
         strcmp(operand, "CLEAR") == 0 ||
@@ -874,6 +932,7 @@ int expectedNumRegisters(const char* operand) {
     return 2;
 }
 
+//frees memory used by nodes and structs in the nodes
 void freeLists(List* intermediateList, List* symtabList, List* littabList) {
     Node* node = intermediateList->head;
     while (node != NULL) {

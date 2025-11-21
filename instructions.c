@@ -83,7 +83,7 @@ const Opcode opcodes[] = {
     {"EXTREF",  0,              0}
 };
 
-//Find and return opcode from opcodes
+//Find and return opcode from opcodes given mnemonic
 const Opcode* findOpcode(char *mnemonic){
     for(int i = 0; i < NUM_INSTRUCTIONS + NUM_DIRECTIVES; i++){
         if(strcmp(mnemonic, opcodes[i].mnemonic) == 0) {
