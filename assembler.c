@@ -372,7 +372,7 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
 
         if (intermediateRep->opcode != NULL && strcmp(intermediateRep->opcode->mnemonic, "END") == 0) {
             fprintf(listingFile, "                 END      %s\n", intermediateRep->operand);
-            return;
+            break;
         }
 
         if (intermediateRep->comment != NULL && strlen(intermediateRep->comment) != 0) {
@@ -459,6 +459,9 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
                 }
                 baseAddress = symbol->value;
             }
+            else if (strcmp(intermediateRep->opcode->mnemonic, "NOBASE") == 0) {
+                canBase = false;
+            }
             else if (strcmp(intermediateRep->opcode->mnemonic, "BYTE") == 0) {
                 fprintf(listingFile, "%0*X", (unsigned int)byteLikeLength(intermediateRep->operand) * 2, (unsigned int)getConstValue(intermediateRep->operand));
             }
@@ -485,6 +488,7 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
         fprintf(listingFile, "\n");
         intermediateRepNode = intermediateRepNode->nextNode;
     }
+    printSymtab(symtabFile, symtabList, littabList);
     fclose(listingFile);
     fclose(symtabFile);
 }
@@ -889,5 +893,37 @@ void freeLists(List* intermediateList, List* symtabList, List* littabList) {
         free(litTabEntry->name);
         free(node);
         node = nextNode;
+    }
+}
+
+//print symtab and littab
+void printSymtab(FILE* symtabFile, List *symtabList, List *littabList) {
+    //print symtable
+    fprintf(symtabFile, "CSect   Symbol  Value   LENGTH  Flags:\n");
+    fprintf(symtabFile, "--------------------------------------\n");
+    Node* node = symtabList->head;
+    while (node != NULL) {
+        SymtabEntry* entry = (SymtabEntry*)node->data;
+        if (entry->csect != NULL && strlen(entry->csect) != 0) {
+            fprintf(symtabFile, "%-16s", entry->csect);
+            fprintf(symtabFile, "%06X  %06X\n", entry->value, entry->length);
+        }
+        else {
+            fprintf(symtabFile, "        %-8s%06X          %s\n", entry->symbol, entry->value, entry->flags);
+        }
+        node = node->nextNode;
+    }
+
+    //print littable
+    fprintf(symtabFile, "\nLiteral Table\n");
+    fprintf(symtabFile, "Name  Operand   Address  Length:\n");
+    fprintf(symtabFile, "--------------------------------\n");
+    node = littabList->head;
+    while (node != NULL) {
+        LitTabEntry* entry = (LitTabEntry*)node->data;
+        long value = getConstValue(&entry->name[1]);
+        char* name = strtok(entry->name + 3, "\'");
+        fprintf(symtabFile, "%-6s%06X    %-9X%d", name, (unsigned int)value, entry->address, entry->length);
+        node = node->nextNode;
     }
 }

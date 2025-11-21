@@ -70,3 +70,4 @@ int format4ObjectCode(char* operand, List* symtabList, List* littabList);
 bool isIndexed(char* str);
 int expectedNumRegisters(const char* operand);
 void freeLists(List* intermediateList, List* symtabList, List* littabList);
+void printSymtab(FILE* symtabFile, List* symtabList, List* littabList);
