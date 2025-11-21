@@ -930,7 +930,7 @@ void printSymtab(FILE* symtabFile, List *symtabList, List *littabList) {
         LitTabEntry* entry = (LitTabEntry*)node->data;
         long value = getConstValue(&entry->name[1]);
         char* name = strtok(entry->name + 3, "\'");
-        fprintf(symtabFile, "%-6s%06X    %-9X%d", name, (unsigned int)value, entry->address, entry->length);
+        fprintf(symtabFile, "%-6s%06X    %-9X%d\n", name, (unsigned int)value, entry->address, entry->length);
         node = node->nextNode;
     }
 }
