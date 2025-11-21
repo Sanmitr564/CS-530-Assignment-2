@@ -1,3 +1,8 @@
+/*
+Aaron Alegre,       cssc2101, Red ID: 828222103
+Patrick Stewart,    cssc2138, Red ID: 130969511
+Edwin Vega,         cssc2141, Red ID: 827746186
+*/
 
 struct Node {
     void* data;
