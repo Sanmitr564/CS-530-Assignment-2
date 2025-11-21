@@ -11,7 +11,7 @@ typedef struct{
     Node *tail;
 }List;
 
-Node *newNode(data);
+Node *newNode(void* data);
 
 Node *createAndAppendNode(List *list, void* data);
 

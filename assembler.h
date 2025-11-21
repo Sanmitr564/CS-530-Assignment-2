@@ -22,7 +22,7 @@
 typedef struct{
     unsigned int address;
     char label[LABEL_MAX_LEN + 1];
-    Opcode *opcode;
+    const Opcode *opcode;
     int format;
     char operand[OPERAND_COL_LEN + 1];
     char *comment;
@@ -55,6 +55,10 @@ char* strip(char *line);
 
 bool labelValidate(char* label);
 
+
+static long getCharValue(char* operand);
+static long getHexValue(char* operand);
+
 void getLabel(char *line, int lineNum, IntermediateRep *intermediateRep);
 void getOpcode(char *line, int lineNum, IntermediateRep *intermediateRep);
 void getOperand(char *line, int lineNum, IntermediateRep *intermediateRep);
@@ -64,5 +68,5 @@ int getRegisterCode(char c);
 int format3ObjectCode(char* operand, int pc, bool canBase, int baseAddress, List* symtabList, List* littabList);
 int format4ObjectCode(char* operand, List* symtabList, List* littabList);
 bool isIndexed(char* str);
-int expectedNumRegisters(char* operand);
+int expectedNumRegisters(const char* operand);
 void freeLists(List* intermediateList, List* symtabList, List* littabList);

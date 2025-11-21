@@ -84,7 +84,7 @@ const Opcode opcodes[] = {
 };
 
 //Find and return opcode from opcodes
-Opcode* findOpcode(char *mnemonic){
+const Opcode* findOpcode(char *mnemonic){
     for(int i = 0; i < NUM_INSTRUCTIONS + NUM_DIRECTIVES; i++){
         if(strcmp(mnemonic, opcodes[i].mnemonic) == 0) {
             return &opcodes[i];

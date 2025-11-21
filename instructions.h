@@ -22,4 +22,4 @@ typedef struct Opcode_Struct Opcode;
 extern const Opcode opcodes[];
 
 //Search methods (recognizes opcode/directive input)
-Opcode *findOpcode(char *mnemonic);
+const Opcode *findOpcode(char *mnemonic);

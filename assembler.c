@@ -460,7 +460,7 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
                 baseAddress = symbol->value;
             }
             else if (strcmp(intermediateRep->opcode->mnemonic, "BYTE") == 0) {
-                fprintf(listingFile, "%0*X", byteLikeLength(intermediateRep->operand) * 2, getConstValue(intermediateRep->operand));
+                fprintf(listingFile, "%0*X", (unsigned int)byteLikeLength(intermediateRep->operand) * 2, (unsigned int)getConstValue(intermediateRep->operand));
             }
             else if (strcmp(intermediateRep->opcode->mnemonic, "WORD") == 0) {
                 long value = 0;
@@ -479,7 +479,7 @@ void pass2(char* fileName, List* intermediateList, List* symtabList, List* litta
                     printf("%s cannot be expressed in 3 bytes. Terminating.\n", intermediateRep->operand);
                     exit(43);
                 }
-                fprintf(listingFile, "%06X", value);
+                fprintf(listingFile, "%06X", (unsigned int)value);
             }
         }
         fprintf(listingFile, "\n");
@@ -852,7 +852,7 @@ bool isIndexed(char* str) {
     return strlen(str) > 2 && str[strlen(str) - 1] == 'X' && str[strlen(str) - 2] == ',';
 }
 
-int expectedNumRegisters(char* operand) {
+int expectedNumRegisters(const char* operand) {
     if (
         strcmp(operand, "CLEAR") == 0 ||
         strcmp(operand, "SVC") == 0 ||
