@@ -1,5 +1,3 @@
-**INCOMPLETE**
-
 Group Members:                  Aaron Alegre, Patrick Stewart, Edwin Vega
 Class Accounts (Respectively):  cssc2101, cssc2138, cssc2141
 RedIDs (Respectively):          828222103, 130969511, 827746186
